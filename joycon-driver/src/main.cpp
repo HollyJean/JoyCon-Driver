@@ -49,6 +49,7 @@
 
 unsigned short product_ids[] = { JOYCON_L_BT, JOYCON_R_BT, PRO_CONTROLLER, JOYCON_CHARGING_GRIP };
 
+HANDLE vjoyThread[2] = { 0, 0 };
 
 float rand0t1() {
 	std::random_device rd;
@@ -910,6 +911,47 @@ int acquirevJoyDevice(int deviceID) {
 	}
 }
 
+typedef struct {
+	UINT DevID;
+	JOYSTICK_POSITION_V2 report;
+} VjoyThreadStruct;
+
+DWORD WINAPI vjoy_update_thread(LPVOID lpParam) {
+	VjoyThreadStruct *threadStruct = (VjoyThreadStruct*)lpParam;
+
+	PVOID pPositionMessage = (PVOID)(&(threadStruct->report));
+	if (!UpdateVJD(threadStruct->DevID, pPositionMessage)) {
+		printf("Feeding vJoy device number %d failed - try to enable device then press enter\n", threadStruct->DevID);
+		getchar();
+		AcquireVJD(threadStruct->DevID);
+	}
+
+	vjoyThread[threadStruct->DevID - 1] = 0;
+	delete threadStruct;
+
+	return 0;
+}
+
+void doMultithreadVjoyUpdate(UINT DevID, JOYSTICK_POSITION_V2 report) {
+	VjoyThreadStruct *threadStruct = new VjoyThreadStruct;
+	threadStruct->DevID = DevID;
+	threadStruct->report = report;
+
+	if (DevID >0 && vjoyThread[DevID - 1] == 0) {
+		vjoyThread[DevID - 1] = CreateThread(
+			NULL,
+			0,
+			vjoy_update_thread,
+			threadStruct,
+			0,
+			NULL
+		);
+		CloseHandle(vjoyThread[DevID - 1]);
+	}
+}
+
+
+
 void updatevJoyDevice(Joycon *jc) {
 
 	// todo: calibration of some kind
@@ -1073,12 +1115,8 @@ void updatevJoyDevice(Joycon *jc) {
 	iReport.lButtons = btns;
 
 	// Send data to vJoy device
-	pPositionMessage = (PVOID)(&iReport);
-	if (!UpdateVJD(DevID, pPositionMessage)) {
-		printf("Feeding vJoy device number %d failed - try to enable device then press enter\n", DevID);
-		getchar();
-		AcquireVJD(DevID);
-	}
+	
+	doMultithreadVjoyUpdate(DevID, iReport);
 }
 
 
@@ -1118,9 +1156,6 @@ void parseSettings(int length, char *args[]) {
 		}
 	}
 }
-
-
-
 
 
 
@@ -1816,9 +1851,8 @@ init_start:
 				//joycon_send_subcommand(jc, 0x01, 0x20, 0x0, 0);// reset MCU
 			//}
 
-
 			updatevJoyDevice(jc);
-
+				
 		}
 
 
