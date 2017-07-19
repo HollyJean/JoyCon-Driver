@@ -1866,7 +1866,7 @@ init_start:
 
 		// sleep:
 		//Sleep(5);
-		//Sleep(1);
+		Sleep(1);
 
 		//auto end = std::chrono::steady_clock::now();
 		std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
