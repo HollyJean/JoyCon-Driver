@@ -1115,8 +1115,13 @@ void updatevJoyDevice(Joycon *jc) {
 	iReport.lButtons = btns;
 
 	// Send data to vJoy device
-	
-	doMultithreadVjoyUpdate(DevID, iReport);
+	pPositionMessage = (PVOID)(&iReport);
+	if (!UpdateVJD(DevID, pPositionMessage)) {
+		printf("Feeding vJoy device number %d failed - try to enable device then press enter\n", DevID);
+		getchar();
+		AcquireVJD(DevID);
+	}
+	//doMultithreadVjoyUpdate(DevID, iReport);
 }
 
 
@@ -1801,10 +1806,11 @@ init_start:
 	
 	int counter = 0;
 
+	auto totalDuration = 0;
 	while(true) {
 
 		//auto start = std::chrono::steady_clock::now();
-		//std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+		std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 		
 
 		counter++;
@@ -1833,7 +1839,9 @@ init_start:
 			//	joycon_send_command(jc, 0x1F, buf, 0);
 			//}
 
-			if (settings.enableGyro) {
+			if (totalDuration < 15000) {
+				hid_read(jc->handle, buf, 65);
+			} else if (settings.enableGyro) {
 				// seems to have slower response time:
 				joycon_send_command(jc, 0x1F, buf, 0);
 			} else {
@@ -1858,12 +1866,17 @@ init_start:
 
 		// sleep:
 		//Sleep(5);
-		Sleep(1);
-
+		//Sleep(1);
 
 		//auto end = std::chrono::steady_clock::now();
-		//std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-		//auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+		std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+
+		if (totalDuration > 15000) {
+			totalDuration = 0;
+		} else {
+			totalDuration += duration;
+		}
 
 		//printf("time: %d\n", duration);
 
