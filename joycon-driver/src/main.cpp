@@ -1808,6 +1808,7 @@ init_start:
 
 	auto totalDuration = 0;
 	while(true) {
+		bool shouldSleep = true;
 
 		//auto start = std::chrono::steady_clock::now();
 		std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
@@ -1840,7 +1841,11 @@ init_start:
 			//}
 
 			if (totalDuration < 15000) {
-				hid_read(jc->handle, buf, 65);
+				int bytesRead = hid_read(jc->handle, buf, 65);
+
+				if (bytesRead) {
+					shouldSleep = false;
+				}
 			} else if (settings.enableGyro) {
 				// seems to have slower response time:
 				joycon_send_command(jc, 0x1F, buf, 0);
@@ -1866,7 +1871,11 @@ init_start:
 
 		// sleep:
 		//Sleep(5);
-		Sleep(1);
+		//Sleep(1);
+
+		if (shouldSleep) {
+			Sleep(1);
+		}
 
 		//auto end = std::chrono::steady_clock::now();
 		std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
